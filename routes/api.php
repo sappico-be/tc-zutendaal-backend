@@ -265,6 +265,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/packages/{packageId}/reminder-settings', 'reminderSettings');
         Route::post('/packages/{packageId}/reminder-settings', 'reminderSettings');
         Route::post('/packages/{packageId}/test-notification', 'sendTestNotification');
+
+        Route::get('/packages/{packageId}/financial-report', 'getFinancialReport');
+        Route::post('/registrations/{registrationId}/mark-paid', 'markRegistrationAsPaid');
+        Route::post('/packages/{packageId}/send-payment-reminders', 'sendPaymentReminders');
+        Route::post('/registrations/{registrationId}/send-reminder', 'sendIndividualPaymentReminder');
+        Route::get('/packages/{packageId}/export-financial-report', 'exportFinancialReport');
     });
 
     // Trainers endpoint (voeg dit toe buiten de lessons prefix)

@@ -159,6 +159,15 @@ export const routes = [
       navActiveLink: 'tennis-lessons',
     },
   },
+
+  {
+    path: '/tennis/lessons/:id/financial-report',
+    name: 'tennis-lessons-financial',
+    component: () => import('@/pages/tennis/lessons/financial-report.vue'),
+    meta: {
+      navActiveLink: 'tennis-lessons',
+    },
+  },
   
   // // Member Management
   // {

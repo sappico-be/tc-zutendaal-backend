@@ -67,6 +67,22 @@
                         title="Groepen beheren"
                     />
                     <VBtn
+                        icon="tabler-report-money"
+                        size="small"
+                        variant="text"
+                        color="warning"
+                        :to="{ name: 'tennis-lessons-financial', params: { id: pkg.id } }"
+                        title="Financieel overzicht"
+                    />
+                    <VBtn
+                        icon="tabler-chart-bar"
+                        size="small"
+                        variant="text"
+                        color="info"
+                        :to="{ name: 'tennis-lessons-attendance', params: { id: pkg.id } }"
+                        title="Aanwezigheid statistieken"
+                    />
+                    <VBtn
                         icon="tabler-edit"
                         size="small"
                         variant="text"

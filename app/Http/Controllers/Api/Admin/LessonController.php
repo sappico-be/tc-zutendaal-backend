@@ -978,4 +978,292 @@ class LessonController extends Controller
         Met sportieve groeten,
         TC Zutendaal";
     }
+
+    /**
+     * Get financial report for a package
+     */
+    public function getFinancialReport($packageId)
+    {
+        $package = LessonPackage::with([
+            'registrations.user',
+            'registrations.assignedGroup',
+            'groups.trainer',
+            'groups.registrations'
+        ])->findOrFail($packageId);
+        
+        // Calculate financial metrics
+        $registrations = $package->registrations;
+        
+        // Add calculated amount field to each registration
+        $registrations = $registrations->map(function($reg) use ($package) {
+            $amount = $reg->user->membership_type === 'non_member' 
+                ? $package->price_non_members 
+                : $package->price_members;
+            
+            $reg->amount = $amount;
+            $reg->assignedGroup = $reg->assignedGroup;
+            
+            return $reg;
+        });
+        
+        // Calculate summary statistics
+        $stats = [
+            'total_registrations' => $registrations->count(),
+            'expected_revenue' => $registrations->sum('amount'),
+            'actual_revenue' => $registrations->where('payment_status', 'paid')->sum('amount_paid'),
+            'outstanding' => 0,
+            'unpaid_count' => $registrations->where('payment_status', 'unpaid')->count(),
+            'average_per_participant' => $registrations->count() > 0 
+                ? $registrations->sum('amount') / $registrations->count() 
+                : 0,
+        ];
+        
+        $stats['outstanding'] = $stats['expected_revenue'] - $stats['actual_revenue'];
+        $stats['collection_rate'] = $stats['expected_revenue'] > 0 
+            ? round(($stats['actual_revenue'] / $stats['expected_revenue']) * 100, 1) 
+            : 0;
+        
+        // Payment status breakdown
+        $paymentStatusBreakdown = $registrations->groupBy('payment_status')->map(function($group) {
+            return [
+                'count' => $group->count(),
+                'amount' => $group->sum('amount'),
+                'amount_paid' => $group->sum('amount_paid'),
+            ];
+        });
+        
+        // Member type breakdown
+        $memberTypeBreakdown = $registrations->groupBy('user.membership_type')->map(function($group) use ($package) {
+            $type = $group->first()->user->membership_type;
+            $rate = $type === 'non_member' 
+                ? $package->price_non_members 
+                : $package->price_members;
+            
+            return [
+                'count' => $group->count(),
+                'rate' => $rate,
+                'total' => $group->sum('amount'),
+            ];
+        });
+        
+        // Group financial data
+        $groupFinancials = $package->groups->map(function($group) use ($package) {
+            $groupRegistrations = $group->registrations;
+            
+            $expectedGroupRevenue = $groupRegistrations->sum(function($reg) use ($package) {
+                return $reg->user->membership_type === 'non_member' 
+                    ? $package->price_non_members 
+                    : $package->price_members;
+            });
+            
+            $collectedGroupRevenue = $groupRegistrations
+                ->where('payment_status', 'paid')
+                ->sum('amount_paid');
+            
+            return [
+                'id' => $group->id,
+                'name' => $group->name,
+                'trainer' => $group->trainer,
+                'participants' => $groupRegistrations->count(),
+                'max_participants' => $group->max_participants,
+                'fill_rate' => $group->max_participants > 0 
+                    ? round(($groupRegistrations->count() / $group->max_participants) * 100, 1) 
+                    : 0,
+                'expected_revenue' => $expectedGroupRevenue,
+                'collected_revenue' => $collectedGroupRevenue,
+                'outstanding' => $expectedGroupRevenue - $collectedGroupRevenue,
+                'collection_rate' => $expectedGroupRevenue > 0 
+                    ? round(($collectedGroupRevenue / $expectedGroupRevenue) * 100, 1) 
+                    : 0,
+            ];
+        });
+        
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'package' => $package,
+                'registrations' => $registrations,
+                'stats' => $stats,
+                'payment_status_breakdown' => $paymentStatusBreakdown,
+                'member_type_breakdown' => $memberTypeBreakdown,
+                'group_financials' => $groupFinancials,
+            ]
+        ]);
+    }
+
+    /**
+     * Mark registration as paid
+     */
+    public function markRegistrationAsPaid(Request $request, $registrationId)
+    {
+        $validated = $request->validate([
+            'amount_paid' => 'nullable|numeric|min:0',
+            'payment_method' => 'nullable|string',
+            'notes' => 'nullable|string',
+        ]);
+        
+        $registration = LessonRegistration::findOrFail($registrationId);
+        
+        // Get the package to determine the amount
+        $package = $registration->package;
+        $amount = $registration->user->membership_type === 'non_member' 
+            ? $package->price_non_members 
+            : $package->price_members;
+        
+        $registration->update([
+            'payment_status' => 'paid',
+            'amount_paid' => $validated['amount_paid'] ?? $amount,
+            'paid_at' => now(),
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Betaling geregistreerd',
+            'data' => $registration
+        ]);
+    }
+
+    /**
+     * Send payment reminders
+     */
+    public function sendPaymentReminders(Request $request, $packageId)
+    {
+        $package = LessonPackage::findOrFail($packageId);
+        
+        $unpaidRegistrations = LessonRegistration::where('lesson_package_id', $packageId)
+            ->where('payment_status', 'unpaid')
+            ->with('user')
+            ->get();
+        
+        $sentCount = 0;
+        foreach ($unpaidRegistrations as $registration) {
+            try {
+                // Send email reminder
+                Mail::to($registration->user->email)->queue(
+                    new \App\Mail\PaymentReminder($registration, $package)
+                );
+                $sentCount++;
+                
+                // Log the reminder
+                \Log::info('Payment reminder sent', [
+                    'user_id' => $registration->user_id,
+                    'package_id' => $packageId,
+                    'registration_id' => $registration->id,
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Failed to send payment reminder', [
+                    'error' => $e->getMessage(),
+                    'registration_id' => $registration->id,
+                ]);
+            }
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => "{$sentCount} herinneringen verstuurd",
+            'sent_count' => $sentCount,
+        ]);
+    }
+
+    /**
+     * Send individual payment reminder
+     */
+    public function sendIndividualPaymentReminder($registrationId)
+    {
+        $registration = LessonRegistration::with(['user', 'package'])->findOrFail($registrationId);
+        
+        if ($registration->payment_status === 'paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Deze inschrijving is al betaald'
+            ], 422);
+        }
+        
+        try {
+            Mail::to($registration->user->email)->queue(
+                new \App\Mail\PaymentReminder($registration, $registration->package)
+            );
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Herinnering verstuurd naar ' . $registration->user->name,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to send payment reminder', [
+                'error' => $e->getMessage(),
+                'registration_id' => $registration->id,
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Fout bij versturen herinnering',
+            ], 500);
+        }
+    }
+
+    /**
+     * Export financial report as PDF
+     */
+    public function exportFinancialReport($packageId)
+    {
+        $package = LessonPackage::with([
+            'registrations.user',
+            'registrations.assignedGroup',
+            'groups.trainer',
+        ])->findOrFail($packageId);
+        
+        // Generate PDF (you'll need to install a PDF package like barryvdh/laravel-dompdf)
+        // For now, return CSV
+        
+        $registrations = $package->registrations;
+        
+        $csvData = [];
+        $csvData[] = ['Financieel Overzicht - ' . $package->name];
+        $csvData[] = ['Gegenereerd op', now()->format('d-m-Y H:i')];
+        $csvData[] = [];
+        $csvData[] = ['Naam', 'Email', 'Type', 'Groep', 'Bedrag', 'Status', 'Betaald'];
+        
+        foreach ($registrations as $reg) {
+            $amount = $reg->user->membership_type === 'non_member' 
+                ? $package->price_non_members 
+                : $package->price_members;
+            
+            $csvData[] = [
+                $reg->user->name,
+                $reg->user->email,
+                $reg->user->membership_type,
+                $reg->assignedGroup?->name ?? 'Niet toegewezen',
+                $amount,
+                $reg->payment_status,
+                $reg->amount_paid
+            ];
+        }
+        
+        // Add summary
+        $csvData[] = [];
+        $csvData[] = ['Samenvatting'];
+        $csvData[] = ['Totaal inschrijvingen', $registrations->count()];
+        $csvData[] = ['Totaal verwacht', $registrations->sum(function($reg) use ($package) {
+            return $reg->user->membership_type === 'non_member' 
+                ? $package->price_non_members 
+                : $package->price_members;
+        })];
+        $csvData[] = ['Totaal ontvangen', $registrations->where('payment_status', 'paid')->sum('amount_paid')];
+        $csvData[] = ['Openstaand', $registrations->sum(function($reg) use ($package) {
+            if ($reg->payment_status === 'paid') return 0;
+            return $reg->user->membership_type === 'non_member' 
+                ? $package->price_non_members 
+                : $package->price_members;
+        })];
+        
+        $filename = 'financieel-overzicht-' . Str::slug($package->name) . '-' . now()->format('Y-m-d') . '.csv';
+        
+        return response()->streamDownload(function() use ($csvData) {
+            $file = fopen('php://output', 'w');
+            foreach ($csvData as $row) {
+                fputcsv($file, $row);
+            }
+            fclose($file);
+        }, $filename);
+    }
 }
