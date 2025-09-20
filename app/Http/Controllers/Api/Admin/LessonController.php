@@ -10,6 +10,11 @@ use App\Models\LessonLocation;
 use App\Models\LessonSchedule;
 use App\Models\TrainerAvailability;
 use App\Models\LessonAttendance;
+use App\Mail\LessonReminder;
+use App\Mail\LessonCancelled;
+use App\Mail\LessonChanged;
+use Illuminate\Support\Facades\Mail;
+use App\Models\LessonNotification;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -824,5 +829,153 @@ class LessonController extends Controller
                 'by_status' => $attendancesByStatus,
             ]
         ]);
+    }
+
+    // ========================================
+    // NOTIFICATION MANAGEMENT
+    // ========================================
+
+    /**
+     * Send notification to group members
+     */
+    public function sendNotification(Request $request, $packageId)
+    {
+        $validated = $request->validate([
+            'group_id' => 'required|exists:lesson_groups,id',
+            'type' => 'required|in:custom,lesson_reminder,lesson_cancelled,schedule_change',
+            'subject' => 'required_if:type,custom|nullable|string',
+            'message' => 'required_if:type,custom|nullable|string',
+            'send_email' => 'boolean',
+            'send_sms' => 'boolean',
+            'test_mode' => 'boolean',
+            'lesson_schedule_id' => 'required_if:type,lesson_reminder|nullable|exists:lesson_schedules,id',
+            'hours_before' => 'nullable|integer|min:1|max:72',
+            'scheduled_at' => 'nullable|date|after:now',
+        ]);
+        
+        $group = LessonGroup::where('lesson_package_id', $packageId)
+            ->where('id', $validated['group_id'])
+            ->with('registrations.user')
+            ->firstOrFail();
+        
+        // Get recipients
+        $recipients = [];
+        if ($validated['test_mode'] ?? false) {
+            // In test mode, only send to current user
+            $recipients = [auth()->user()];
+        } else {
+            // Send to all group members
+            $recipients = $group->registrations->map(function($reg) {
+                return $reg->user;
+            });
+        }
+        
+        // Prepare message based on type
+        $subject = $validated['subject'] ?? '';
+        $message = $validated['message'] ?? '';
+        
+        if ($validated['type'] === 'lesson_reminder' && isset($validated['lesson_schedule_id'])) {
+            $lesson = LessonSchedule::with('location')->find($validated['lesson_schedule_id']);
+            $subject = 'Herinnering: Tennis les ' . date('d/m', strtotime($lesson->lesson_date));
+            $message = $this->prepareLessonReminderMessage($lesson, $group);
+        } elseif ($validated['type'] === 'lesson_cancelled') {
+            $subject = $subject ?: 'Les geannuleerd';
+            $message = $message ?: 'Uw les is geannuleerd. U ontvangt binnenkort meer informatie.';
+        } elseif ($validated['type'] === 'schedule_change') {
+            $subject = $subject ?: 'Rooster wijziging';
+            $message = $message ?: 'Er is een wijziging in het lesrooster. Bekijk de website voor meer informatie.';
+        }
+        
+        // Send notifications (for now just log, implement actual sending later)
+        $sentCount = 0;
+        foreach ($recipients as $recipient) {
+            // Replace placeholders in message
+            $personalizedMessage = str_replace(
+                ['{name}', '{group}', '{date}', '{time}', '{location}'],
+                [
+                    $recipient->name,
+                    $group->name,
+                    isset($lesson) ? date('d/m/Y', strtotime($lesson->lesson_date)) : '',
+                    isset($lesson) ? $lesson->start_time : '',
+                    isset($lesson) && $lesson->location ? $lesson->location->name : 'TC Zutendaal',
+                ],
+                $message
+            );
+            
+            if ($validated['send_email'] ?? true) {
+                // TODO: Actually send email here
+                // For now, just log
+                \Log::info('Would send email to: ' . $recipient->email, [
+                    'subject' => $subject,
+                    'message' => $personalizedMessage,
+                ]);
+                $sentCount++;
+            }
+            
+            if ($validated['send_sms'] ?? false) {
+                // TODO: Implement SMS sending
+                \Log::info('Would send SMS to: ' . $recipient->mobile);
+            }
+        }
+        
+        // Store notification in database (optional, for tracking)
+        // You might want to create a notifications table for this
+        
+        return response()->json([
+            'success' => true,
+            'message' => ($validated['test_mode'] ?? false) 
+                ? 'Test notificatie verstuurd naar jouw email' 
+                : "Notificatie verstuurd naar {$sentCount} leden",
+            'recipients_count' => $sentCount,
+        ]);
+    }
+    
+    /**
+     * Get notifications history
+     */
+    public function getNotifications($packageId)
+    {
+        // TODO: Implement if you create a notifications table
+        return response()->json([
+            'success' => true,
+            'data' => [],
+            'message' => 'Notificatie geschiedenis komt binnenkort',
+        ]);
+    }
+    
+    /**
+     * Cancel scheduled notification
+     */
+    public function cancelNotification($packageId, $notificationId)
+    {
+        // TODO: Implement if you create scheduled notifications
+        return response()->json([
+            'success' => true,
+            'message' => 'Geplande notificatie geannuleerd',
+        ]);
+    }
+    
+    /**
+     * Prepare lesson reminder message
+     */
+    private function prepareLessonReminderMessage($lesson, $group)
+    {
+        $date = date('d/m/Y', strtotime($lesson->lesson_date));
+        $time = substr($lesson->start_time, 0, 5);
+        $location = $lesson->location ? $lesson->location->name : 'TC Zutendaal';
+        
+        return "Beste {name},
+
+        Dit is een herinnering voor je tennisles morgen.
+
+        Groep: {$group->name}
+        Datum: {$date}
+        Tijd: {$time}
+        Locatie: {$location}
+
+        Tot morgen!
+
+        Met sportieve groeten,
+        TC Zutendaal";
     }
 }

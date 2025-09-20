@@ -255,6 +255,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/packages/{packageId}/users/{userId}/attendance-stats', 'getUserAttendanceStats');
         Route::get('/packages/{packageId}/groups/{groupId}/attendance-stats', 'getGroupAttendanceStats');
         Route::get('/packages/{packageId}/attendance-stats', 'getPackageAttendanceStats');
+        
+        // Notifications
+        Route::post('/packages/{packageId}/notifications', 'sendNotification');
+        Route::get('/packages/{packageId}/notifications', 'getNotifications');
+        Route::delete('/packages/{packageId}/notifications/{notificationId}', 'cancelNotification');
+
+        // Reminder Settings
+        Route::get('/packages/{packageId}/reminder-settings', 'reminderSettings');
+        Route::post('/packages/{packageId}/reminder-settings', 'reminderSettings');
+        Route::post('/packages/{packageId}/test-notification', 'sendTestNotification');
     });
 
     // Trainers endpoint (voeg dit toe buiten de lessons prefix)

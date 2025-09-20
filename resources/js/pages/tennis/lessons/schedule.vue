@@ -57,8 +57,18 @@
                 size="small"
                 variant="outlined"
                 @click="generateGroupSchedule(group.id)"
+                class="mr-2"
               >
                 Genereer Lessen
+              </VBtn>
+              <VBtn
+                size="small"
+                color="info"
+                variant="outlined"
+                @click="openNotification(group)"
+                prepend-icon="tabler-bell"
+              >
+                Notificatie
               </VBtn>
             </template>
           </VCardItem>
@@ -119,7 +129,7 @@
                   </td>
                 </tr>
                 <tr v-if="!getGroupLessons(group.id).length">
-                  <td colspan="6" class="text-center py-4">
+                  <td colspan="7" class="text-center py-4">
                     Nog geen lessen ingepland
                   </td>
                 </tr>
@@ -280,6 +290,14 @@
     :package-id="packageId"
     @saved="onAttendanceSaved"
   />
+  
+  <!-- Notification Dialog Component -->
+  <NotificationDialog
+    v-model="showNotificationDialog"
+    :group="selectedGroupForNotification"
+    :package-id="packageId"
+    @sent="onNotificationSent"
+  />
 </template>
 
 <script setup>
@@ -287,6 +305,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from '@/plugins/axios'
 import AttendanceDialog from '@/components/tennis/AttendanceDialog.vue'
+import NotificationDialog from '@/components/tennis/NotificationDialog.vue'
 
 definePage({
   meta: {
@@ -305,12 +324,14 @@ const viewMode = ref('list')
 const showGenerateDialog = ref(false)
 const showEditDialog = ref(false)
 const showAttendanceDialog = ref(false)
+const showNotificationDialog = ref(false)
 const selectedLesson = ref(null)
+const selectedGroupForNotification = ref(null)
 
 const generateForm = ref({
   group_id: null,
-  start_date: null, // Optioneel, gebruik pakket datum als null
-  end_date: null,   // Optioneel, gebruik pakket datum als null
+  start_date: null,
+  end_date: null,
   regenerate: false
 })
 
@@ -332,7 +353,6 @@ const existingLessonsCount = computed(() => {
 })
 
 const unscheduledGroups = computed(() => {
-  // Toon alle groepen, maar markeer degene die al een rooster hebben
   return groups.value.map(g => ({
     ...g,
     name: g.name + (getGroupLessons(g.id).length > 0 ? ' (heeft rooster)' : '')
@@ -397,29 +417,23 @@ const formatDays = (days) => {
 
 const loadData = async () => {
   try {
-    // Load package with groups
     const packageResponse = await axios.get(`/lessons/packages/${packageId}`)
     lessonPackage.value = packageResponse.data.data
     groups.value = packageResponse.data.data.groups || []
     
-    // Clear existing schedules before loading new ones
     schedules.value = []
     
-    // Load schedules for all groups
     for (const group of groups.value) {
       try {
         const scheduleResponse = await axios.get(`/lessons/packages/${packageId}/groups/${group.id}/schedule`)
-        // Push only the schedules for this specific group
         if (scheduleResponse.data.data && scheduleResponse.data.data.length > 0) {
           schedules.value.push(...scheduleResponse.data.data)
         }
       } catch (error) {
         console.error(`Error loading schedule for group ${group.id}:`, error)
-        // Continue with next group even if one fails
       }
     }
     
-    // Load locations
     const locationsResponse = await axios.get('/lessons/locations')
     locations.value = locationsResponse.data.data || []
   } catch (error) {
@@ -453,7 +467,6 @@ const generateSchedule = async () => {
     return
   }
   
-  // Check of we moeten regenereren
   if (hasExistingSchedule.value && !generateForm.value.regenerate) {
     alert('Deze groep heeft al lessen. Vink "Overschrijf bestaand rooster" aan om opnieuw te genereren.')
     return
@@ -464,7 +477,6 @@ const generateSchedule = async () => {
       regenerate: generateForm.value.regenerate
     }
     
-    // Voeg alleen datums toe als ze zijn ingevuld (advanced options)
     if (generateForm.value.start_date) {
       payload.start_date = generateForm.value.start_date
     }
@@ -479,7 +491,6 @@ const generateSchedule = async () => {
       payload
     )
     
-    // Sluit dialog en reset form
     showGenerateDialog.value = false
     generateForm.value = {
       group_id: null,
@@ -488,7 +499,6 @@ const generateSchedule = async () => {
       regenerate: false
     }
     
-    // Herlaad data proper - dit cleared de array en laadt alles opnieuw
     await loadData()
     
     alert(response.data.message || 'Rooster succesvol gegenereerd')
@@ -560,6 +570,15 @@ const openAttendance = (lesson, group) => {
 const onAttendanceSaved = () => {
   loadData()
   alert('Aanwezigheid opgeslagen')
+}
+
+const openNotification = (group) => {
+  selectedGroupForNotification.value = group
+  showNotificationDialog.value = true
+}
+
+const onNotificationSent = () => {
+  alert('Notificatie succesvol verstuurd!')
 }
 
 onMounted(() => {
