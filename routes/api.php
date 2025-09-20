@@ -223,14 +223,50 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Registrations
         Route::get('/packages/{id}/registrations', 'getRegistrations');
         
-        // Groups (voeg deze toe)
+        // Groups - COMPLETE set of routes
         Route::post('/packages/{id}/groups', 'storeGroup');
+        Route::put('/packages/{packageId}/groups/{groupId}', 'updateGroup'); // UPDATE route
+        Route::delete('/packages/{packageId}/groups/{groupId}', 'deleteGroup'); // DELETE route
         Route::post('/packages/{packageId}/groups/{groupId}/assign', 'assignToGroup');
         Route::post('/packages/{packageId}/remove-from-group', 'removeFromGroup');
         
         // Locations
         Route::get('/locations', 'getLocations');
         Route::post('/locations', 'storeLocation');
+
+        // Schedule Management
+        Route::post('/packages/{packageId}/groups/{groupId}/schedule', 'generateSchedule');
+        Route::get('/packages/{packageId}/groups/{groupId}/schedule', 'getGroupSchedule');
+        Route::put('/packages/{packageId}/groups/{groupId}/schedule/{scheduleId}', 'updateSchedule');
+        Route::post('/packages/{packageId}/groups/{groupId}/schedule/{scheduleId}/cancel', 'cancelLesson');
+        Route::get('/packages/{packageId}/calendar', 'getCalendar');
+
+        // Trainer Availability
+        Route::post('/packages/{packageId}/trainer-availability', 'setTrainerAvailability');
+        Route::get('/packages/{packageId}/trainer-availability/{trainerId}', 'getTrainerAvailability');
+        Route::get('/packages/{packageId}/available-trainers', 'getAvailableTrainers');
+
+        // Attendance Management
+        Route::get('/packages/{packageId}/groups/{groupId}/schedule/{scheduleId}/attendance', 'getLessonAttendance');
+        Route::post('/packages/{packageId}/groups/{groupId}/schedule/{scheduleId}/attendance', 'updateAttendance');
+        Route::post('/packages/{packageId}/groups/{groupId}/schedule/{scheduleId}/attendance/mark', 'markAttendance');
+
+        // Attendance Statistics
+        Route::get('/packages/{packageId}/users/{userId}/attendance-stats', 'getUserAttendanceStats');
+        Route::get('/packages/{packageId}/groups/{groupId}/attendance-stats', 'getGroupAttendanceStats');
+        Route::get('/packages/{packageId}/attendance-stats', 'getPackageAttendanceStats');
+    });
+
+    // Trainers endpoint (voeg dit toe buiten de lessons prefix)
+    Route::get('/trainers', function() {
+        $trainers = \App\Models\User::whereIn('role', ['trainer', 'admin', 'board_member'])
+            ->where('is_active', true)
+            ->get(['id', 'name', 'email', 'role']);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $trainers
+        ]);
     });
     
     // Member Management

@@ -52,18 +52,28 @@
                   </td>
                   <td>
                     <VBtn
-                      icon="tabler-users"
-                      size="small"
-                      variant="text"
-                      :to="{ name: 'tennis-lessons-manage', params: { id: pkg.id } }"
+                        icon="tabler-calendar"
+                        size="small"
+                        variant="text"
+                        color="success"
+                        :to="{ name: 'tennis-lessons-schedule', params: { id: pkg.id } }"
+                        title="Rooster"
                     />
                     <VBtn
-                      icon="tabler-edit"
-                      size="small"
-                      variant="text"
-                      :to="{ name: 'tennis-lessons-edit', params: { id: pkg.id } }"
+                        icon="tabler-users"
+                        size="small"
+                        variant="text"
+                        :to="{ name: 'tennis-lessons-manage', params: { id: pkg.id } }"
+                        title="Groepen beheren"
                     />
-                  </td>
+                    <VBtn
+                        icon="tabler-edit"
+                        size="small"
+                        variant="text"
+                        :to="{ name: 'tennis-lessons-edit', params: { id: pkg.id } }"
+                        title="Bewerken"
+                    />
+                    </td>
                 </tr>
               </tbody>
             </VTable>

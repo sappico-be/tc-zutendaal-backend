@@ -143,6 +143,22 @@ export const routes = [
       navActiveLink: 'tennis-lessons',
     },
   },
+  {
+    path: '/tennis/lessons/:id/schedule',
+    name: 'tennis-lessons-schedule',
+    component: () => import('@/pages/tennis/lessons/schedule.vue'),
+    meta: {
+      navActiveLink: 'tennis-lessons',
+    },
+  },
+  {
+    path: '/tennis/lessons/:id/attendance',
+    name: 'tennis-lessons-attendance',
+    component: () => import('@/pages/tennis/lessons/attendance-stats.vue'),
+    meta: {
+      navActiveLink: 'tennis-lessons',
+    },
+  },
   
   // // Member Management
   // {
