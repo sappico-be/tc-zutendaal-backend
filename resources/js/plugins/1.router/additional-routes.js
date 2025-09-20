@@ -1,3 +1,5 @@
+// resources/js/plugins/1.router/additional-routes.js
+
 const emailRouteComponent = () => import('@/pages/apps/email/index.vue')
 
 // 👉 Redirects
@@ -8,15 +10,17 @@ export const redirects = [
     path: '/',
     name: 'index',
     redirect: to => {
-      // TODO: Get type from backend
-      const userData = useCookie('userData')
-      const userRole = userData.value?.role
-      if (userRole === 'admin')
-        return { name: 'dashboards-crm' }
-      if (userRole === 'client')
-        return { name: 'access-control' }
+      // Redirect naar Tennis Club Dashboard voor nu
+      return { name: 'dashboard-tennis' }
       
-      return { name: 'login', query: to.query }
+      // Original redirect logic (kun je later weer activeren)
+      // const userData = useCookie('userData')
+      // const userRole = userData.value?.role
+      // if (userRole === 'admin')
+      //   return { name: 'dashboard-tennis' }
+      // if (userRole === 'client')
+      //   return { name: 'access-control' }
+      // return { name: 'login', query: to.query }
     },
   },
   {
@@ -30,7 +34,156 @@ export const redirects = [
     redirect: () => ({ name: 'pages-account-settings-tab', params: { tab: 'account' } }),
   },
 ]
+
 export const routes = [
+  // ========================================
+  // TENNIS CLUB ROUTES
+  // ========================================
+  
+  // Tennis Club Dashboard
+  {
+    path: '/dashboard',
+    name: 'dashboard-tennis',
+    component: () => import('@/pages/dashboard-tennis.vue'),
+    meta: {
+      navActiveLink: 'dashboard-tennis',
+    },
+  },
+  
+  // News Management
+  {
+    path: '/tennis/news',
+    name: 'tennis-news-list',
+    component: () => import('@/pages/tennis/news/list.vue'),
+    meta: {
+      navActiveLink: 'tennis-news',
+    },
+  },
+  {
+    path: '/tennis/news/create',
+    name: 'tennis-news-create',
+    component: () => import('@/pages/tennis/news/form.vue'),
+    meta: {
+      navActiveLink: 'tennis-news',
+    },
+  },
+  {
+    path: '/tennis/news/:id/edit',
+    name: 'tennis-news-edit',
+    component: () => import('@/pages/tennis/news/form.vue'),
+    meta: {
+      navActiveLink: 'tennis-news',
+    },
+  },
+  
+  // Event Management
+  {
+    path: '/tennis/events',
+    name: 'tennis-events-list',
+    component: () => import('@/pages/tennis/events/list.vue'),
+    meta: {
+      navActiveLink: 'tennis-events',
+    },
+  },
+  {
+    path: '/tennis/events/create',
+    name: 'tennis-events-create',
+    component: () => import('@/pages/tennis/events/form.vue'),
+    meta: {
+      navActiveLink: 'tennis-events',
+    },
+  },
+  {
+    path: '/tennis/events/:id/edit',
+    name: 'tennis-events-edit',
+    component: () => import('@/pages/tennis/events/form.vue'),
+    meta: {
+      navActiveLink: 'tennis-events',
+    },
+  },
+  {
+    path: '/tennis/events/:id/registrations',
+    name: 'tennis-event-registrations',
+    component: () => import('@/pages/tennis/events/registrations.vue'),
+    meta: {
+      navActiveLink: 'tennis-events',
+    },
+  },
+
+  // Lessons Management
+  {
+    path: '/tennis/lessons',
+    name: 'tennis-lessons-packages',
+    component: () => import('@/pages/tennis/lessons/packages.vue'),
+    meta: {
+      navActiveLink: 'tennis-lessons',
+    },
+  },
+  {
+    path: '/tennis/lessons/create',
+    name: 'tennis-lessons-create',
+    component: () => import('@/pages/tennis/lessons/form.vue'),
+    meta: {
+      navActiveLink: 'tennis-lessons',
+    },
+  },
+  {
+    path: '/tennis/lessons/:id/edit',
+    name: 'tennis-lessons-edit',
+    component: () => import('@/pages/tennis/lessons/form.vue'),
+    meta: {
+      navActiveLink: 'tennis-lessons',
+    },
+  },
+  {
+    path: '/tennis/lessons/:id/manage',
+    name: 'tennis-lessons-manage',
+    component: () => import('@/pages/tennis/lessons/manage.vue'),
+    meta: {
+      navActiveLink: 'tennis-lessons',
+    },
+  },
+  
+  // // Member Management
+  // {
+  //   path: '/tennis/members',
+  //   name: 'tennis-members-list',
+  //   component: () => import('@/pages/tennis/members/list.vue'),
+  //   meta: {
+  //     navActiveLink: 'tennis-members',
+  //   },
+  // },
+  // {
+  //   path: '/tennis/members/:id',
+  //   name: 'tennis-member-detail',
+  //   component: () => import('@/pages/tennis/members/detail.vue'),
+  //   meta: {
+  //     navActiveLink: 'tennis-members',
+  //   },
+  // },
+  
+  // // Payment Management
+  // {
+  //   path: '/tennis/payments',
+  //   name: 'tennis-payments-list',
+  //   component: () => import('@/pages/tennis/payments/list.vue'),
+  //   meta: {
+  //     navActiveLink: 'tennis-payments',
+  //   },
+  // },
+  {
+    path: '/tennis/payments/success/:registrationId',
+    name: 'tennis-payment-success',
+    component: () => import('@/pages/tennis/payments/success.vue'),
+    meta: {
+      navActiveLink: 'tennis-events',
+    },
+  },
+  
+  // ========================================
+  // ORIGINAL VUEXY ROUTES (behouden)
+  // ========================================
+  
   // Email filter
   {
     path: '/apps/email/filter/:filter',
@@ -41,7 +194,6 @@ export const routes = [
       layoutWrapperClasses: 'layout-content-height-fixed',
     },
   },
-
   // Email label
   {
     path: '/apps/email/label/:label',
