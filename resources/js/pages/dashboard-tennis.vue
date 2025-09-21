@@ -2,7 +2,7 @@
   <VContainer>
     <VRow>
       <VCol cols="12">
-        <h1 class="text-h4 mb-6">Tennis Club Dashboard</h1>
+        <h1 class="text-h4 mb-6">Dashboard</h1>
       </VCol>
     </VRow>
     

@@ -52,6 +52,12 @@ export default [
             }
         ],
     },
+
+    {
+        title: 'Uren Registratie',
+        icon: { icon: 'tabler-clock-record' },
+        to: { name: 'tennis-trainer-hours' },
+    },
     //   {
     //     title: 'Leden',
     //     to: { name: 'tennis-members-list' },

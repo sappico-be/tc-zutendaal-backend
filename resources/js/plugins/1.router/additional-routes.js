@@ -168,6 +168,15 @@ export const routes = [
       navActiveLink: 'tennis-lessons',
     },
   },
+
+  {
+    path: '/tennis/trainer-hours',
+    name: 'tennis-trainer-hours',
+    component: () => import('@/pages/tennis/trainer-hours.vue'),
+    meta: {
+      navActiveLink: 'tennis-trainer-hours',
+    },
+  },
   
   // // Member Management
   // {

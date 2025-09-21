@@ -273,6 +273,35 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/packages/{packageId}/export-financial-report', 'exportFinancialReport');
     });
 
+    // Trainer Hours Management
+    Route::prefix('trainer-hours')->controller(\App\Http\Controllers\Api\Admin\TrainerHoursController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/', 'store');
+        Route::put('/{id}', 'update');
+        Route::delete('/{id}', 'destroy');
+        
+        // Approval
+        Route::post('/{id}/approve', 'approve')->middleware('admin');
+        Route::post('/{id}/reject', 'reject')->middleware('admin');
+        Route::post('/bulk-approve', 'bulkApprove')->middleware('admin');
+        
+        // Import & Export
+        Route::post('/import-from-schedule', 'importFromSchedule');
+        Route::get('/export', 'exportHours');
+        
+        // Monthly Summary
+        Route::get('/monthly-summary', 'getMonthlySummary');
+        Route::post('/submit-monthly', 'submitMonthly');
+        
+        // Contracts
+        Route::get('/contracts', 'getContracts');
+        Route::post('/contracts', 'storeContract')->middleware('admin');
+        
+        // Payroll
+        Route::get('/payroll', 'getPayrollOverview')->middleware('admin');
+        Route::post('/summaries/{summaryId}/mark-paid', 'markAsPaid')->middleware('admin');
+    });
+
     // Trainers endpoint (voeg dit toe buiten de lessons prefix)
     Route::get('/trainers', function() {
         $trainers = \App\Models\User::whereIn('role', ['trainer', 'admin', 'board_member'])
